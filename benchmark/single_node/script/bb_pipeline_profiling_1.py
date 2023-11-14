@@ -73,7 +73,7 @@ for config, dp, pp, batch_size, global_batch_size in itertools.product(
     if config_name in ("large", "xlarge") and batch_size > 2:
         continue
     name = f"gpt{config_name}_dp{dp}_pp{pp}_batch{batch_size}_globalbatch{global_batch_size}"
-    print(f'\n\n\n\n\nRUNNING EXPERIMENT')
+    print(f'\n\n\n\n\nRUNNING EXPERIMENT {name}')
     num_layers = config["NUM_LAYERS"]
     hidden_size = config["HIDDEN_SIZE"]
     num_attn_heads = config["NUM_ATTN_HEADS"]
@@ -98,5 +98,5 @@ for config, dp, pp, batch_size, global_batch_size in itertools.product(
     os.system(
         f"deepspeed ../model/gpt.py ${train_options} --deepspeed_config config/${name}.json"
     )
-    print(f'FINISHING EXPERIMENT\n\n')
+    print(f'FINISHING EXPERIMENT {name}\n\n')
     time.sleep(60)
