@@ -10,6 +10,7 @@ import deepspeed
 from deepspeed.pipe import PipelineModule
 from deepspeed.runtime.pipe.topology import PipeDataParallelTopology
 from pynvml import *
+from torch.profiler import profile, ProfilerActivity
 
 
 def clones(module, N):
@@ -224,6 +225,7 @@ def get_args():
     parser.add_argument(
         "--aci", type=int, default=0, help="Activation checkpoint interval"
     )
+    parser.add_argument("--log", type=str)
 
     parser = deepspeed.add_config_arguments(parser)
     args = parser.parse_args()
@@ -280,8 +282,15 @@ def train():
         training_data=dataset,
     )
 
-    for _ in range(args.steps):
-        engine.train_batch()
+    with torch.profiler.profile(
+        activities=[ProfilerActivity.CUDA],
+        schedule=torch.profiler.schedule(wait=0, warmup=1, active=10, repeat=1),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(f"./log/{args.log}"),
+        profile_memory=True,
+    ) as profiler:
+        for _ in range(args.steps):
+            engine.train_batch()
+            profiler.step()
 
 
 if __name__ == "__main__":
