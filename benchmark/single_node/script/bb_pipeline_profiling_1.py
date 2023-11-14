@@ -78,25 +78,26 @@ for config, dp, pp, batch_size, global_batch_size in itertools.product(
     hidden_size = config["HIDDEN_SIZE"]
     num_attn_heads = config["NUM_ATTN_HEADS"]
     train_options = f" \
-        --steps ${STEPS} \
+        --steps {STEPS} \
         --backend nccl \
-        --dp ${dp} \
-        --pp ${pp} \
-        -N ${num_layers} \
-        -dm ${hidden_size} \
-        -H ${num_attn_heads} \
-        --seq ${SEQ_LEN} \
-        --parts ${PARTITIONS} \
-        --log ${name}"
+        --dp {dp} \
+        --pp {pp} \
+        -N {num_layers} \
+        -dm {hidden_size} \
+        -H {num_attn_heads} \
+        --seq {SEQ_LEN} \
+        --parts {PARTITIONS} \
+        --log {name}"
     with open(deepspeed_config_template_path) as f:
         j = json.load(f)
-        j["train_micro_batch_size_per_gpu"] = global_batch_size
-        j["train_batch_size"] = batch_size
+        j["train_micro_batch_size_per_gpu"] = batch_size
+        j["train_batch_size"] = global_batch_size
         with open(f"config/{name}.json", "w") as fout:
             json.dump(j, fout, indent=True)
             fout.flush()
     os.system(
         f"deepspeed ../model/gpt.py {train_options} --deepspeed_config config/{name}.json"
     )
+    # print(f'deepspeed ../model/gpt.py {train_options} --deepspeed_config config/{name}.json')
     print(f"FINISHING EXPERIMENT {name}\n\n")
-    time.sleep(60)
+    time.sleep(30)
