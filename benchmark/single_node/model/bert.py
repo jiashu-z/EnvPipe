@@ -27,8 +27,10 @@ class DatasetSimple(torch.utils.data.Dataset):
         return self._size
 
     def __getitem__(self, idx):
-        return (torch.tensor(self._inputs[idx], dtype=torch.float32),
-                self._labels[idx].astype('float32'))
+        return (
+            torch.tensor(self._inputs[idx], dtype=torch.float32),
+            self._labels[idx].astype("float32"),
+        )
 
 
 class EncoderLayerSimple(nn.Module):
@@ -109,17 +111,16 @@ class MultiHeadedAttention(nn.Module):
         nbatches = query.size(0)
 
         # 1) Do all the linear projections in batch from d_model => h x d_k
-        query, key, value = \
-            [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
-             for l, x in zip(self.linears, (query, key, value))]
+        query, key, value = [
+            l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
+            for l, x in zip(self.linears, (query, key, value))
+        ]
 
         # 2) Apply attention on all the projected vectors in batch.
-        x, self.attn = attention(query, key, value, mask=mask,
-                                 dropout=self.dropout)
+        x, self.attn = attention(query, key, value, mask=mask, dropout=self.dropout)
 
         # 3) "Concat" using a view and apply a final linear.
-        x = x.transpose(1, 2).contiguous() \
-             .view(nbatches, -1, self.h * self.d_k)
+        x = x.transpose(1, 2).contiguous().view(nbatches, -1, self.h * self.d_k)
         return self.linears[-1](x)
 
 
@@ -138,7 +139,7 @@ class PositionwiseFeedForward(nn.Module):
 
 class BERTSimple(nn.Module):
     def __init__(self, N=6, d_model=512, h=8, dropout=0.1) -> None:
-        """ A simplified bert without embedding and language model heads """
+        """A simplified bert without embedding and language model heads"""
         super().__init__()
         c = copy.deepcopy
 
@@ -169,7 +170,7 @@ def make_model(*args):
 
 
 def test():
-    device = 'cuda:0'
+    device = "cuda:0"
 
     d_model = 32
     d_ff = 64
@@ -181,14 +182,13 @@ def test():
     x = torch.randn(batch_size, seq_len, d_model).to(device)
 
     out = model(x)
-    print(f'Input shape: {x.shape}; \n'
-          f'Output shape: {out.shape}')
+    print(f"Input shape: {x.shape}; \n" f"Output shape: {out.shape}")
 
 
 def gen_parts(args):
     parts = []
     if args.parts and args.parts != "-":
-        parts = [int(p) for p in args.parts.split(',')]
+        parts = [int(p) for p in args.parts.split(",")]
         assert sum(parts) == args.N
         parts[-1] += 1  # One additional reduce layer
         parts = [0] + [sum(parts[:i]) + p for i, p in enumerate(parts)]
@@ -198,42 +198,38 @@ def gen_parts(args):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s',
-                        '--steps',
-                        type=int,
-                        default=10,
-                        help='quit after this many steps')
-    parser.add_argument('--backend',
-                        type=str,
-                        default='nccl',
-                        help='distributed backend')
-    parser.add_argument('--local_rank',
-                        type=int,
-                        default=None,
-                        help='local rank passed from distributed launcher.')
-    parser.add_argument('--dp',
-                        type=int,
-                        default=1,
-                        help='size of data parallelism')
-    parser.add_argument('--pp',
-                        type=int,
-                        default=4,
-                        help='size of pipeline parallelism')
-    parser.add_argument('--seed', type=int, default=7777, help='seed')
+    parser.add_argument(
+        "-s", "--steps", type=int, default=10, help="quit after this many steps"
+    )
+    parser.add_argument(
+        "--backend", type=str, default="nccl", help="distributed backend"
+    )
+    parser.add_argument(
+        "--local_rank",
+        type=int,
+        default=None,
+        help="local rank passed from distributed launcher.",
+    )
+    parser.add_argument("--dp", type=int, default=1, help="size of data parallelism")
+    parser.add_argument(
+        "--pp", type=int, default=4, help="size of pipeline parallelism"
+    )
+    parser.add_argument("--seed", type=int, default=7777, help="seed")
 
     # Model config args
-    parser.add_argument('-N', type=int, default=24)
-    parser.add_argument('--d-model', '-dm', type=int, default=1024)
-    parser.add_argument('-H', type=int, default=16)
-    parser.add_argument('--seq', type=int, default=512)
-    parser.add_argument('--parts',
-                        type=str,
-                        default='',
-                        help='Specify number of layers for each partition; separated by comma like `1,2,2,3`')
-    parser.add_argument('--aci',
-                        type=int,
-                        default=1,
-                        help='Activation checkpoint interval')
+    parser.add_argument("-N", type=int, default=24)
+    parser.add_argument("--d-model", "-dm", type=int, default=1024)
+    parser.add_argument("-H", type=int, default=16)
+    parser.add_argument("--seq", type=int, default=512)
+    parser.add_argument(
+        "--parts",
+        type=str,
+        default="",
+        help="Specify number of layers for each partition; separated by comma like `1,2,2,3`",
+    )
+    parser.add_argument(
+        "--aci", type=int, default=1, help="Activation checkpoint interval"
+    )
 
     parser = deepspeed.add_config_arguments(parser)
     args = parser.parse_args()
@@ -246,12 +242,13 @@ def init_dist(args):
 
     data_parallel_size = args.dp
     pipe_parallel_size = args.pp
-    custom_topology = PipeDataParallelTopology(
-        pipe_parallel_size, data_parallel_size)
+    custom_topology = PipeDataParallelTopology(pipe_parallel_size, data_parallel_size)
 
-    return {'data_parallel_size': data_parallel_size,
-            'pipe_parallel_size': pipe_parallel_size,
-            'topo': custom_topology}
+    return {
+        "data_parallel_size": data_parallel_size,
+        "pipe_parallel_size": pipe_parallel_size,
+        "topo": custom_topology,
+    }
 
 
 def train():
@@ -260,14 +257,15 @@ def train():
     dist_config = init_dist(args)
     parts = gen_parts(args)
     layers = make_model(args.N, args.d_model, args.H).join_layers()
-    model = PipelineModule(layers=layers,
-                           loss_fn=nn.MSELoss(),
-                           num_stages=dist_config['pipe_parallel_size'],
-                           partition_method='uniform' if len(
-                               parts) == 0 else 'custom',
-                           custom_partitions=parts,
-                           topology=dist_config['topo'],
-                           activation_checkpoint_interval=args.aci)
+    model = PipelineModule(
+        layers=layers,
+        loss_fn=nn.MSELoss(),
+        num_stages=dist_config["pipe_parallel_size"],
+        partition_method="uniform" if len(parts) == 0 else "custom",
+        custom_partitions=parts,
+        topology=dist_config["topo"],
+        activation_checkpoint_interval=args.aci,
+    )
 
     dataset = DatasetSimple(args.seq, args.d_model)
 
@@ -275,7 +273,8 @@ def train():
         args=args,
         model=model,
         model_parameters=[p for p in model.parameters() if p.requires_grad],
-        training_data=dataset)
+        training_data=dataset,
+    )
 
     # Profiling phase
     while True:
@@ -308,15 +307,21 @@ def train():
     if args.local_rank == 0:
         for i in range(device_count):
             handle = nvmlDeviceGetHandleByIndex(i)
-            total_energy_consumption[i] = nvmlDeviceGetTotalEnergyConsumption(
-                handle) - current_energy[i]
+            total_energy_consumption[i] = (
+                nvmlDeviceGetTotalEnergyConsumption(handle) - current_energy[i]
+            )
 
-        throughput = (engine.train_batch_size() * args.steps) / \
-            (time.time() - start_time)
+        throughput = (engine.train_batch_size() * args.steps) / (
+            time.time() - start_time
+        )
 
-        print("[RESULT]", round(throughput, 3), ",", round(sum(
-            total_energy_consumption) / args.steps, 3))
+        print(
+            "[RESULT]",
+            round(throughput, 3),
+            ",",
+            round(sum(total_energy_consumption) / args.steps, 3),
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     train()
