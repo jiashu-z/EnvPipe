@@ -13,12 +13,5 @@
         }
     },
     "steps_per_print": 1,
-    "wall_clock_breakdown": false,
-    "envpipe": {
-        "type": "ENVPIPE_TYPE",
-        "scheduling": "ENVPIPE_SCHEDULING",
-        "reconfig": "ENVPIPE_RECONFIGURE",
-        "gpu": "ENVPIPE_GPU",
-        "reconfigure_threshold_scale": "ENVPIPE_RECONFIG_THRESHOLD_SCALE"
-    }
+    "wall_clock_breakdown": false
 }

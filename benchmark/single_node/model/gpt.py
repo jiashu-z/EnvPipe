@@ -18,7 +18,7 @@ def clones(module, N):
 
 
 class DatasetSimple(torch.utils.data.Dataset):
-    def __init__(self, seq, d_model, size=100):
+    def __init__(self, seq, d_model, size=8):
         self._size = size
         self._inputs = np.random.randn(size, seq, d_model)
         self._labels = np.random.randn(size, seq)
@@ -27,10 +27,11 @@ class DatasetSimple(torch.utils.data.Dataset):
         return self._size
 
     def __getitem__(self, idx):
-        return (
-            torch.tensor(self._inputs[idx], dtype=torch.float32),
-            self._labels[idx].astype("float32"),
+        x, y = (
+            torch.tensor(self._inputs[idx % self._size], dtype=torch.float32),
+            self._labels[idx % self._size].astype("float32"),
         )
+        return (x, y)
 
 
 class DecoderLayerSimple(nn.Module):
@@ -161,6 +162,7 @@ class GPT2Simple(nn.Module):
         Returns:
             out ()
         """
+        print(x.shape)
         for layer in self.layers:
             x = layer(x)
         return self.reduce(self.norm(x))
@@ -220,7 +222,7 @@ def get_args():
         help="Specify number of layers for each partition; separated by comma like `1,2,2,3`",
     )
     parser.add_argument(
-        "--aci", type=int, default=1, help="Activation checkpoint interval"
+        "--aci", type=int, default=0, help="Activation checkpoint interval"
     )
 
     parser = deepspeed.add_config_arguments(parser)
@@ -263,9 +265,9 @@ def train():
         layers=layers,
         loss_fn=nn.MSELoss(),
         num_stages=dist_config["pipe_parallel_size"],
-        partition_method="type:DecoderLayerSimple" if len(parts) == 0 else "custom",
+        # partition_method="type:DecoderLayerSimple" if len(parts) == 0 else "custom",
         #    custom_partitions=parts,
-        topology=dist_config["topo"],
+        # topology=dist_config["topo"],
         activation_checkpoint_interval=args.aci,
     )
 
@@ -278,49 +280,8 @@ def train():
         training_data=dataset,
     )
 
-    # Profiling phase
-    while True:
-        engine.train_batch()
-        if not engine.energy_profiler.is_profiling:
-            break
-
-    # Reconfigure phase
-    while True:
-        engine.train_batch()
-        if engine.execution_grid.finish_reconfigure():
-            break
-
-    device_count = nvmlDeviceGetCount()
-    current_energy = [0] * device_count
-    total_energy_consumption = [0] * device_count
-
-    if args.local_rank == 0:
-        for i in range(device_count):
-            handle = nvmlDeviceGetHandleByIndex(i)
-            current_energy[i] = nvmlDeviceGetTotalEnergyConsumption(handle)
-
-        start_time = time.time()
-
     for _ in range(args.steps):
         engine.train_batch()
-
-    if args.local_rank == 0:
-        for i in range(device_count):
-            handle = nvmlDeviceGetHandleByIndex(i)
-            total_energy_consumption[i] = (
-                nvmlDeviceGetTotalEnergyConsumption(handle) - current_energy[i]
-            )
-
-        throughput = (engine.train_batch_size() * args.steps) / (
-            time.time() - start_time
-        )
-
-        print(
-            "[RESULT]",
-            round(throughput, 3),
-            ",",
-            round(sum(total_energy_consumption) / args.steps, 3),
-        )
 
 
 if __name__ == "__main__":
